@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>清理缓存中...</title>
+<style>
+body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #1a1a2e; color: #fff; }
+.spinner { width: 60px; height: 60px; border: 6px solid #333; border-top-color: #00d4ff; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 24px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+h2 { font-weight: 400; margin:0 0 8px 0; }
+p { color: #aaa; margin:4px 0; }
+.log { max-width:460px; font-size:13px; color:#888; margin-top:20px; }
+.log span { display:block; padding:2px 0; }
+.log .ok { color:#4caf50; }
+.log .err { color:#f44336; }
+</style>
+</head>
+<body>
+<div class="spinner"></div>
+<h2>正在清理旧缓存...</h2>
+<p id="status">初始化中...</p>
+<div class="log" id="log"></div>
+<p style="margin-top:24px;color:#555">最多等待10秒，将自动跳转</p>
+<script>
+(function() {
+  var logEl = document.getElementById('log');
+  var statusEl = document.getElementById('status');
+  var done = false;
+
+  function log(msg, ok) {
+    var cls = ok === true ? 'ok' : (ok === false ? 'err' : '');
+    logEl.innerHTML += '<span class="' + cls + '">' + msg + '</span>';
+  }
+
+  function redirect() {
+    if (done) return;
+    done = true;
+    statusEl.textContent = '完成！正在跳转...';
+    setTimeout(function() {
+      window.location.replace('index.html');
+    }, 300);
+  }
+
+  // 硬性超时：8秒后无论如何都跳转
+  setTimeout(function() {
+    log('⏱ 超时，强制跳转');
+    redirect();
+  }, 8000);
+
+  try {
+    if ('serviceWorker' in navigator) {
+      log('检测到 Service Worker API');
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        statusEl.textContent = '正在注销 Service Worker (' + regs.length + '个)...';
+        log('找到 ' + regs.length + ' 个 Service Worker');
+        if (regs.length === 0) {
+          log('没有需要注销的 SW ✓', true);
+          clearCaches();
+        } else {
+          var count = 0;
+          regs.forEach(function(reg) {
+            reg.unregister().then(function(result) {
+              count++;
+              log('已注销: ' + reg.scope + ' (' + (result ? '成功' : '失败') + ')', result);
+              if (count >= regs.length) {
+                log('所有 SW 已处理完毕', true);
+                clearCaches();
+              }
+            }).catch(function(e) {
+              count++;
+              log('注销失败: ' + e.message, false);
+              if (count >= regs.length) clearCaches();
+            });
+          });
+        }
+      }).catch(function(e) {
+        log('获取 SW 列表失败: ' + e.message, false);
+        clearCaches();
+      });
+    } else {
+      log('不支持 Service Worker（跳过）');
+      clearCaches();
+    }
+  } catch(e) {
+    log('SW 操作异常: ' + e.message, false);
+    clearCaches();
+  }
+
+  function clearCaches() {
+    statusEl.textContent = '正在清除缓存...';
+    try {
+      if ('caches' in window) {
+        caches.keys().then(function(keys) {
+          log('找到 ' + keys.length + ' 个缓存');
+          if (keys.length === 0) {
+            log('没有缓存需要清除 ✓', true);
+            redirect();
+          } else {
+            var count = 0;
+            keys.forEach(function(key) {
+              caches.delete(key).then(function(result) {
+                count++;
+                log('已删除: ' + key + ' (' + (result ? '成功' : '失败') + ')', result);
+                if (count >= keys.length) {
+                  log('所有缓存已清除 ✓', true);
+                  redirect();
+                }
+              }).catch(function(e) {
+                count++;
+                log('删除失败: ' + e.message, false);
+                if (count >= keys.length) redirect();
+              });
+            });
+          }
+        }).catch(function(e) {
+          log('获取缓存列表失败: ' + e.message, false);
+          redirect();
+        });
+      } else {
+        log('不支持 Cache API（跳过）');
+        redirect();
+      }
+    } catch(e) {
+      log('缓存操作异常: ' + e.message, false);
+      redirect();
+    }
+  }
+})();
+</script>
+</body>
+</html>
