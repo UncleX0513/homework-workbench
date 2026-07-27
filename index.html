@@ -1096,8 +1096,93 @@ function loadData() {
 }
 
 function saveData() {
+  appData._cloudTs = new Date().toISOString();
   localStorage.setItem(STORE_KEY, JSON.stringify(appData));
+  cloudSave(appData.children, appData.password);
 }
+
+// ========== 云端同步 (GitHub仓库) ==========
+const CLOUD_URL = 'https://api.github.com/repos/UncleX0513/homework-workbench/contents/data.json';
+const CLOUD_RAW = 'https://raw.githubusercontent.com/UncleX0513/homework-workbench/main/data.json';
+var _cloudToken = '';
+var _cloudSha = '';
+var _cloudLastSave = 0;
+
+function setCloudToken(t) { _cloudToken = t; if(t) localStorage.setItem('_wbtoken', t); }
+function getCloudToken() {
+  if (!_cloudToken) _cloudToken = localStorage.getItem('_wbtoken') || '';
+  return _cloudToken;
+}
+
+async function cloudLoad() {
+  try {
+    const resp = await fetch(CLOUD_RAW + '?t=' + Date.now());
+    if (!resp.ok) return null;
+    const json = await resp.json();
+    if (json && json.zhizhi && json.xixi) return json;
+  } catch(e) { console.log('☁️ 拉取失败:', e.message); }
+  return null;
+}
+
+async function cloudSave(childrenData, pwd) {
+  const token = getCloudToken();
+  if (!token) return false;
+  const now = Date.now();
+  if (now - _cloudLastSave < 3000) return true;
+  _cloudLastSave = now;
+  try {
+    let sha = _cloudSha;
+    if (!sha) {
+      const resp = await fetch(CLOUD_URL, {
+        headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
+      });
+      if (resp.ok) { const j = await resp.json(); sha = j.sha; _cloudSha = sha; }
+    }
+    const payload = { ...childrenData, password: pwd || null, _ts: new Date().toISOString() };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const body = JSON.stringify({ message: '☁️ 自动同步', content: content, sha: sha });
+    const resp = await fetch(CLOUD_URL, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'token ' + token,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json'
+      },
+      body: body
+    });
+    if (resp.ok) {
+      const j = await resp.json();
+      _cloudSha = j.content.sha;
+      console.log('☁️ 已同步');
+      return true;
+    }
+    if (resp.status === 401) { setCloudToken(''); showToast('⚠️ 云端Token已失效'); }
+    if (resp.status === 409) { _cloudSha = ''; console.log('☁️ 冲突,下次重试'); }
+  } catch(e) { console.log('☁️ 同步失败:', e.message); }
+  return false;
+}
+
+async function cloudSync() {
+  const token = getCloudToken();
+  if (!token) return;
+  const cloud = await cloudLoad();
+  if (!cloud) return;
+  const cloudTs = cloud._ts || '';
+  const localTs = appData._cloudTs || '';
+  if (cloudTs > localTs) {
+    appData.children = cloud;
+    if (cloud.password !== undefined) appData.password = cloud.password;
+    appData._cloudTs = cloudTs;
+    saveData();
+    console.log('☁️ 云端数据已恢复');
+    showToast('☁️ 数据已从云端同步');
+    renderDay();
+  } else if (cloudTs < localTs) {
+    cloudSave(appData.children, appData.password);
+  }
+}
+
 
 function getChild() { return appData.children[currentChild]; }
 function getDateKey(d) {
@@ -2763,6 +2848,29 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js', { scope: './' })
     .then(reg => console.log('📱 PWA SW 已注册', reg.scope))
     .catch(err => console.log('SW 注册失败(正常):', err.message));
+}
+
+function setupCloudToken() {
+  const input = document.getElementById('cloudTokenInput');
+  const status = document.getElementById('cloudStatus');
+  const token = input.value.trim();
+  if (!token) { status.textContent = '请输入Token'; return; }
+  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+    status.textContent = 'Token格式不正确'; return;
+  }
+  setCloudToken(token);
+  status.textContent = '✅ Token已保存！数据自动同步';
+  status.style.color = '#4caf50';
+  input.value = '';
+  _cloudSha = '';
+  cloudSync();
+}
+function setCloudTokenUI() {
+  const status = document.getElementById('cloudStatus');
+  if (localStorage.getItem('_wbtoken')) {
+    status.textContent = '✅ 云同步已启用';
+    status.style.color = '#4caf50';
+  }
 }
 
 // ========== 数据导出/导入 ==========
