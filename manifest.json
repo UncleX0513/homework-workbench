@@ -1,0 +1,24 @@
+{
+  "name": "之之兮兮作业工作台",
+  "short_name": "作业工作台",
+  "description": "双胞胎作业管理工作台 - 宠物陪伴学习",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FFE5EC",
+  "theme_color": "#7C5CFC",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
