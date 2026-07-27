@@ -2873,6 +2873,29 @@ function setCloudTokenUI() {
   }
 }
 
+function setupCloudToken() {
+  const input = document.getElementById('cloudTokenInput');
+  const status = document.getElementById('cloudStatus');
+  const token = input.value.trim();
+  if (!token) { status.textContent = '请输入Token'; return; }
+  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+    status.textContent = 'Token格式不正确'; return;
+  }
+  setCloudToken(token);
+  status.textContent = '✅ Token已保存！数据自动同步';
+  status.style.color = '#4caf50';
+  input.value = '';
+  _cloudSha = '';
+  cloudSync();
+}
+function setCloudTokenUI() {
+  const status = document.getElementById('cloudStatus');
+  if (localStorage.getItem('_wbtoken')) {
+    status.textContent = '✅ 云同步已启用';
+    status.style.color = '#4caf50';
+  }
+}
+
 // ========== 数据导出/导入 ==========
 function exportData() {
   const data = JSON.parse(localStorage.getItem('homeworkWorkbench') || '{}');
