@@ -765,6 +765,15 @@ body {
         <div class="setting-item" onclick="importData()">
           <span>📥 导入数据</span><span class="arrow">›</span>
         </div>
+        <div style="margin:8px 0;border-top:1px solid rgba(124,92,252,0.1);padding-top:8px">
+          <div style="font-size:11px;color:var(--text-faint);margin-bottom:4px">☁️ 云端同步</div>
+          <div style="display:flex;gap:4px">
+            <input id="cloudTokenInput" type="password" placeholder="输入GitHub Token" 
+              style="flex:1;padding:6px 8px;border:1px solid rgba(124,92,252,0.2);border-radius:6px;font-size:11px;background:rgba(255,255,255,0.8);outline:none">
+            <button onclick="setupCloudToken()" style="padding:6px 10px;border-radius:6px;border:none;background:#238636;color:#fff;cursor:pointer;font-size:11px;white-space:nowrap">💾 保存</button>
+          </div>
+          <div id="cloudStatus" style="font-size:10px;color:var(--text-faint);margin-top:2px"></div>
+        </div>
         <div class="setting-item" onclick="lockApp()">
           <span>🔒 锁屏</span><span class="arrow">›</span>
         </div>
@@ -1183,6 +1192,30 @@ async function cloudSync() {
   }
 }
 
+function setupCloudToken() {
+  const input = document.getElementById('cloudTokenInput');
+  const status = document.getElementById('cloudStatus');
+  if (!input || !status) return;
+  const token = input.value.trim();
+  if (!token) { status.textContent = '请输入Token'; return; }
+  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+    status.textContent = 'Token格式不正确'; return;
+  }
+  setCloudToken(token);
+  status.textContent = '✅ Token已保存！数据自动同步';
+  status.style.color = '#4caf50';
+  input.value = '';
+  _cloudSha = '';
+  cloudSync();
+}
+function setCloudTokenUI() {
+  const status = document.getElementById('cloudStatus');
+  if (!status) return;
+  if (localStorage.getItem('_wbtoken')) {
+    status.textContent = '✅ 云同步已启用';
+    status.style.color = '#4caf50';
+  }
+}
 
 function getChild() { return appData.children[currentChild]; }
 function getDateKey(d) {
@@ -1690,6 +1723,18 @@ function showSettings() {
     <div class="setting-item" onclick="closeSettings();exportData()">
       <span>💾 导出数据</span><span class="arrow">›</span>
     </div>
+    <div class="setting-item" onclick="closeSettings();importData()">
+      <span>📥 导入数据</span><span class="arrow">›</span>
+    </div>
+    <div style="margin:8px 0;border-top:1px solid rgba(124,92,252,0.1);padding-top:8px">
+      <div style="font-size:11px;color:var(--text-faint);margin-bottom:4px">☁️ 云端同步</div>
+      <div style="display:flex;gap:4px">
+        <input id="cloudTokenInput" type="password" placeholder="输入GitHub Token" 
+          style="flex:1;padding:6px 8px;border:1px solid rgba(124,92,252,0.2);border-radius:6px;font-size:11px;background:rgba(255,255,255,0.8);outline:none">
+        <button onclick="setupCloudToken()" style="padding:6px 10px;border-radius:6px;border:none;background:#238636;color:#fff;cursor:pointer;font-size:11px;white-space:nowrap">💾 保存</button>
+      </div>
+      <div id="cloudStatus" style="font-size:10px;color:var(--text-faint);margin-top:2px"></div>
+    </div>
     <div class="setting-item" onclick="closeSettings();lockApp()">
       <span>🔒 锁屏</span><span class="arrow">›</span>
     </div>
@@ -1748,6 +1793,9 @@ function enterApp() {
   const dow = getDayOfWeek();
   selectedDay = (dow === 0 ? 6 : dow - 1);
   renderAll();
+  // 云端同步
+  setCloudTokenUI();
+  setTimeout(cloudSync, 2000);
 }
 
 function switchChild(child) {
@@ -2849,98 +2897,9 @@ if ('serviceWorker' in navigator) {
     .then(reg => console.log('📱 PWA SW 已注册', reg.scope))
     .catch(err => console.log('SW 注册失败(正常):', err.message));
 }
-
-function setupCloudToken() {
-  const input = document.getElementById('cloudTokenInput');
-  const status = document.getElementById('cloudStatus');
-  const token = input.value.trim();
-  if (!token) { status.textContent = '请输入Token'; return; }
-  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
-    status.textContent = 'Token格式不正确'; return;
-  }
-  setCloudToken(token);
-  status.textContent = '✅ Token已保存！数据自动同步';
-  status.style.color = '#4caf50';
-  input.value = '';
-  _cloudSha = '';
-  cloudSync();
-}
-function setCloudTokenUI() {
-  const status = document.getElementById('cloudStatus');
-  if (localStorage.getItem('_wbtoken')) {
-    status.textContent = '✅ 云同步已启用';
-    status.style.color = '#4caf50';
-  }
-}
-
-function setupCloudToken() {
-  const input = document.getElementById('cloudTokenInput');
-  const status = document.getElementById('cloudStatus');
-  const token = input.value.trim();
-  if (!token) { status.textContent = '请输入Token'; return; }
-  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
-    status.textContent = 'Token格式不正确'; return;
-  }
-  setCloudToken(token);
-  status.textContent = '✅ Token已保存！数据自动同步';
-  status.style.color = '#4caf50';
-  input.value = '';
-  _cloudSha = '';
-  cloudSync();
-}
-function setCloudTokenUI() {
-  const status = document.getElementById('cloudStatus');
-  if (localStorage.getItem('_wbtoken')) {
-    status.textContent = '✅ 云同步已启用';
-    status.style.color = '#4caf50';
-  }
-}
-
-// ========== 数据导出/导入 ==========
-function exportData() {
-  const data = JSON.parse(localStorage.getItem('homeworkWorkbench') || '{}');
-  const exportObj = {
-    app: 'homework-workbench',
-    version: 'v6.1',
-    exportedAt: new Date().toISOString(),
-    data: data
-  };
-  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '作业工作台_备份_' + new Date().toISOString().slice(0,10) + '.json';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('📤 数据已导出，可发送到手机导入');
-}
-
-function importData() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json';
-  input.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const obj = JSON.parse(ev.target.result);
-        if (obj.app !== 'homework-workbench') throw new Error('无效的备份文件');
-        // 直接覆盖本地数据
-        localStorage.setItem('homeworkWorkbench', JSON.stringify(obj.data));
-        showToast('📥 数据导入成功！请重新登录');
-        setTimeout(() => {
-          location.reload();
-        }, 1500);
-      } catch(err) {
-        showToast('❌ 导入失败：文件格式不正确');
-      }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
 </script>
 </body>
 </html>
+
+
+
