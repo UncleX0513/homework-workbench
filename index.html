@@ -1272,6 +1272,22 @@ body {
 
     <div class="login-error" id="setupError"></div>
 
+    <div id="cloudHint" style="margin-top:16px;padding:12px;background:#f0f7ff;border-radius:8px;font-size:13px;color:#555;line-height:1.6;display:none">
+
+      <strong>已有手机端数据？</strong><br>
+
+      输入云同步Token即可自动恢复密码<br>
+
+      <input type="password" id="cloudTokenInputHint" placeholder="ghp_..." maxlength="50"
+
+        style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin:6px 0;outline:none">
+
+      <button onclick="setupCloudTokenFromHint()"
+
+        style="width:100%;padding:8px;background:#2196F3;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer">从云端恢复密码</button>
+
+    </div>
+
   </div>
 
 </div>
@@ -2404,6 +2420,48 @@ function setupCloudToken() {
 
 }
 
+async function setupCloudTokenFromHint() {
+
+  const input = document.getElementById('cloudTokenInputHint');
+
+  if (!input) return;
+
+  const token = input.value.trim();
+
+  if (!token) { alert('请输入Token'); return; }
+
+  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) { alert('Token格式不正确，应以ghp_或github_pat_开头'); return; }
+
+  setCloudToken(token);
+
+  try {
+
+    await cloudSync();
+
+    if (appData.password) {
+
+      document.getElementById('setupScreen').style.display = 'none';
+
+      document.getElementById('cloudHint').style.display = 'none';
+
+      document.getElementById('loginScreen').style.display = 'flex';
+
+      alert('密码已从云端恢复！请输入 ' + appData.password + ' 登录');
+
+    } else {
+
+      alert('云端数据中没有密码，请手动设置');
+
+    }
+
+  } catch(e) {
+
+    alert('同步失败: ' + e.message + '。请检查Token是否正确，网络是否通畅。');
+
+  }
+
+}
+
 function setCloudTokenUI() {
 
   const status = document.getElementById('cloudStatus');
@@ -3196,6 +3254,28 @@ function init() {
 
   if (!appData.password) {
 
+    // Try to recover password from cloud if token exists
+
+    if (getCloudToken()) {
+
+      document.getElementById('cloudHint').style.display = 'block';
+
+      cloudSync().then(function() {
+
+        if (appData.password) {
+
+          document.getElementById('setupScreen').style.display = 'none';
+
+          document.getElementById('loginScreen').style.display = 'flex';
+
+          document.getElementById('cloudHint').style.display = 'none';
+
+        }
+
+      });
+
+    }
+
     document.getElementById('loginScreen').style.display = 'none';
 
     document.getElementById('setupScreen').style.display = 'flex';
@@ -3203,6 +3283,8 @@ function init() {
   } else {
 
     document.getElementById('loginScreen').style.display = 'flex';
+
+    document.getElementById('setupScreen').style.display = 'none';
 
   }
 
