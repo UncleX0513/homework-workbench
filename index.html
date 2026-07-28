@@ -2435,27 +2435,40 @@ async function setupCloudTokenFromHint() {
 
   try {
 
-    await cloudSync();
+    // 直接用API拉取（绕过cloudSync可能因为raw URL缓存失败的问题）
+    const resp = await fetch(CLOUD_URL, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
+    });
+    if (!resp.ok) {
+      alert('云端连接失败 (HTTP ' + resp.status + ')，请检查网络和Token');
+      return;
+    }
+    const info = await resp.json();
+    if (!info.content) {
+      alert('云端无数据，请先在另一台设备上登录并保存数据');
+      return;
+    }
+    const cloud = JSON.parse(decodeURIComponent(escape(atob(info.content))));
+    console.log('hint cloud data:', cloud);
 
-    if (appData.password) {
+    if (cloud.password) {
+      // 恢复所有数据
+      appData.password = cloud.password;
+      appData.children = cloud;
+      if (cloud._ts) appData._cloudTs = cloud._ts;
+      saveData();
 
       document.getElementById('setupScreen').style.display = 'none';
-
       document.getElementById('cloudHint').style.display = 'none';
-
       document.getElementById('loginScreen').style.display = 'flex';
-
-      alert('密码已从云端恢复！请输入 ' + appData.password + ' 登录');
-
+      alert('✅ 密码已从云端恢复！请输入 ' + cloud.password + ' 登录');
     } else {
-
       alert('云端数据中没有密码，请手动设置');
-
     }
 
   } catch(e) {
 
-    alert('同步失败: ' + e.message + '。请检查Token是否正确，网络是否通畅。');
+    alert('同步失败: ' + e.message + '。请检查网络是否通畅。');
 
   }
 
