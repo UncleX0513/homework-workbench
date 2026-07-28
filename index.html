@@ -3257,8 +3257,6 @@ function init() {
 
     if (getCloudToken()) {
 
-      document.getElementById('cloudHint').style.display = 'block';
-
       cloudSync().then(function() {
 
         if (appData.password) {
@@ -3274,6 +3272,8 @@ function init() {
       });
 
     }
+
+    document.getElementById('cloudHint').style.display = 'block';
 
     document.getElementById('loginScreen').style.display = 'none';
 
