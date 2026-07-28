@@ -3297,35 +3297,33 @@ function setupPassword() {
 
 
 function tryLogin() {
+  try {
+    const pwdEl = document.getElementById('passwordInput');
+    const err = document.getElementById('loginError');
+    if (!pwdEl) { alert('页面加载异常，请刷新重试'); return; }
+    const pwd = pwdEl.value.trim();
 
-  const pwd = document.getElementById('passwordInput').value;
+    if (!appData) {
+      err.textContent = '数据加载中，请稍后再试';
+      setTimeout(() => { location.reload(); }, 1500);
+      return;
+    }
 
-  const err = document.getElementById('loginError');
-
-
-
-  if (pwd === appData.password) {
-
-    document.getElementById('loginScreen').style.display = 'none';
-
-    document.getElementById('mainApp').style.display = 'flex';
-
-    document.getElementById('passwordInput').value = '';
-
-    err.textContent = '';
-
-    enterApp();
-
-  } else {
-
-    err.textContent = '密码错误，请重试';
-
-    document.querySelector('.login-box').classList.add('shake');
-
-    setTimeout(() => document.querySelector('.login-box').classList.remove('shake'), 400);
-
+    if (pwd === appData.password) {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('mainApp').style.display = 'flex';
+      pwdEl.value = '';
+      err.textContent = '';
+      enterApp();
+    } else {
+      err.textContent = '密码错误，请重试';
+      const box = document.querySelector('.login-box');
+      if (box) { box.classList.add('shake'); setTimeout(() => box.classList.remove('shake'), 400); }
+    }
+  } catch(e) {
+    alert('登录异常: ' + e.message + '。请截图发给管理员，然后刷新页面重试。');
+    console.error('tryLogin error:', e);
   }
-
 }
 
 
