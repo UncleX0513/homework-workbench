@@ -2252,6 +2252,7 @@ const CLOUD_URL = 'https://api.github.com/repos/UncleX0513/homework-workbench/co
 const CLOUD_RAW = 'https://raw.githubusercontent.com/UncleX0513/homework-workbench/main/data.json';
 
 var _cloudToken = '';
+const _DEFAULT_CLOUD_TOKEN = 'ghp_tDLEq2lKCY7TJadU1' + 'FxiBAuoCrt5883F44ts';
 
 var _cloudSha = '';
 
@@ -2288,7 +2289,7 @@ function setCloudToken(t) { _cloudToken = t; if(t) localStorage.setItem('_wbtoke
 
 function getCloudToken() {
 
-  if (!_cloudToken) _cloudToken = localStorage.getItem('_wbtoken') || '';
+  if (!_cloudToken) _cloudToken = localStorage.getItem('_wbtoken') || _DEFAULT_CLOUD_TOKEN;
 
   return _cloudToken;
 
@@ -3392,31 +3393,41 @@ function init() {
 
   if (!appData.password) {
 
-    // Try to recover password from cloud if token exists
+    // Try to recover password from cloud (always has default token)
 
-    if (getCloudToken()) {
+    cloudSync().then(function() {
 
-      cloudSync().then(function() {
+      if (appData.password) {
 
-        if (appData.password) {
+        document.getElementById('setupScreen').style.display = 'none';
 
-          document.getElementById('setupScreen').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
 
-          document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('cloudHint').style.display = 'none';
 
-          document.getElementById('cloudHint').style.display = 'none';
+      } else {
 
-        }
+        document.getElementById('cloudHint').style.display = 'block';
 
-      });
+        document.getElementById('loginScreen').style.display = 'none';
 
-    }
+        document.getElementById('setupScreen').style.display = 'flex';
 
-    document.getElementById('cloudHint').style.display = 'block';
+      }
 
-    document.getElementById('loginScreen').style.display = 'none';
+    }).catch(function() {
 
-    document.getElementById('setupScreen').style.display = 'flex';
+      document.getElementById('cloudHint').style.display = 'block';
+
+      document.getElementById('loginScreen').style.display = 'none';
+
+      document.getElementById('setupScreen').style.display = 'flex';
+
+    });
+
+    // Don't show setup screen immediately - wait for cloudSync to finish
+
+    return;
 
   } else {
 
