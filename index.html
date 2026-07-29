@@ -1236,7 +1236,7 @@ body {
 
     <div class="logo">🐰</div>
 
-    <h1>之之兮兮作业工作台 <span style="font-size:12px;color:#00d4ff">v6.2</span></h1>
+    <h1>之之兮兮作业工作台 <span style="font-size:12px;color:#00d4ff">v6.3</span></h1>
 
     <p>请输入密码开启学习之旅</p>
 
@@ -2253,6 +2253,7 @@ const CLOUD_RAW = 'https://raw.githubusercontent.com/UncleX0513/homework-workben
 
 var _cloudToken = '';
 const _DEFAULT_CLOUD_TOKEN = 'ghp_tDLEq2lKCY7TJadU1' + 'FxiBAuoCrt5883F44ts';
+const _DEFAULT_PASSWORD = '891121';
 
 var _cloudSha = '';
 
@@ -2311,7 +2312,8 @@ async function cloudLoad() {
       if (apiResp.ok) {
         var apiData = await apiResp.json();
         if (apiData && apiData.content) {
-          var raw = decodeURIComponent(escape(atob(apiData.content)));
+          // atob doesn't handle newlines in some mobile browsers — strip them first
+          var raw = decodeURIComponent(escape(atob(apiData.content.replace(/\n/g, ''))));
           var json = JSON.parse(raw);
           if (json && json.zhizhi && json.xixi) return json;
         }
@@ -2359,7 +2361,8 @@ async function cloudSave(childrenData, pwd, retryAttempt) {
       // Protect password: if local pwd is null but cloud has a valid password, preserve it
       if (!cloudPwd) {
         try {
-          var cloudContent = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(j.content), function(c){return c.charCodeAt(0);})));
+          var cloudRaw = decodeURIComponent(escape(atob(j.content.replace(/\n/g, ''))));
+          var cloudContent = JSON.parse(cloudRaw);
           if (cloudContent.password) { cloudPwd = cloudContent.password; console.log('cloudSave: preserved cloud password'); }
         } catch(_) {}
       }
@@ -2494,7 +2497,7 @@ async function setupCloudTokenFromHint() {
       alert('云端无数据，请先在另一台设备上登录并保存数据');
       return;
     }
-    const cloud = JSON.parse(decodeURIComponent(escape(atob(info.content))));
+    const cloud = JSON.parse(decodeURIComponent(escape(atob(info.content.replace(/\n/g, '')))));
     console.log('hint cloud data:', cloud);
 
     if (cloud.password) {
@@ -3457,49 +3460,20 @@ function init() {
 
   todayKey = getDateKey();
 
-
-
-  // Check if first time setup
-
   if (!appData.password) {
-
-    // Try to recover password from cloud (always has default token)
-
+    appData.password = _DEFAULT_PASSWORD;
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('setupScreen').style.display = 'none';
+    document.getElementById('cloudHint').style.display = 'none';
     cloudSync().then(function() {
-
-      if (appData.password) {
-
-        document.getElementById('setupScreen').style.display = 'none';
-
-        document.getElementById('loginScreen').style.display = 'flex';
-
-        document.getElementById('cloudHint').style.display = 'none';
-
-      } else {
-
-        document.getElementById('cloudHint').style.display = 'block';
-
-        document.getElementById('loginScreen').style.display = 'none';
-
-        document.getElementById('setupScreen').style.display = 'flex';
-
+      if (appData.children; appData.children.zhizhi; appData.children.xixi) {
+        console.log('Cloud data loaded');
+        updateCloudStatus('\u2601\uFE0F 数据已就绪');
       }
-
-    }).catch(function() {
-
-      document.getElementById('cloudHint').style.display = 'block';
-
-      document.getElementById('loginScreen').style.display = 'none';
-
-      document.getElementById('setupScreen').style.display = 'flex';
-
-    });
-
-    // Don't show setup screen immediately - wait for cloudSync to finish
-
+    }).catch(function() {});
     return;
 
-  } else {
+    } else {
 
     document.getElementById('loginScreen').style.display = 'flex';
 
