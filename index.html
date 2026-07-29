@@ -1240,7 +1240,7 @@ body {
 
     <p>请输入密码开启学习之旅</p>
 
-    <input type="password" id="passwordInput" placeholder="••••" maxlength="20" autocomplete="off">
+    <input type="password" id="passwordInput" placeholder="••••" maxlength="20" autocomplete="new-password" name="login-pwd">
 
     <button class="btn-login" onclick="tryLogin()">进 入</button>
 
@@ -3466,7 +3466,7 @@ function init() {
     document.getElementById('setupScreen').style.display = 'none';
     document.getElementById('cloudHint').style.display = 'none';
     cloudSync().then(function() {
-      if (appData.children; appData.children.zhizhi; appData.children.xixi) {
+      if (appData.children && appData.children.zhizhi && appData.children.xixi) {
         console.log('Cloud data loaded');
         updateCloudStatus('\u2601\uFE0F 数据已就绪');
       }
