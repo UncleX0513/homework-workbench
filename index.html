@@ -2274,8 +2274,24 @@ setInterval(async function() {
   const cloudTs = cloud._ts || '';
   const localTs = appData._cloudTs || '';
   if (cloudTs > localTs) {
+    // Safety: if cloud has no password but local does, refuse to overwrite
+    if (!cloud.password && appData.password) {
+      console.log('auto-sync: cloud has no password, keeping local and repairing');
+      appData._cloudTs = cloudTs;
+      localStorage.setItem(STORE_KEY, JSON.stringify(appData));
+      await cloudSave(appData.children, appData.password);
+      return;
+    }
+    // Safety: if cloud children have no pet data but local does, refuse to overwrite
+    if (!_hasRealData(cloud) && _hasRealData(appData.children)) {
+      console.log('auto-sync: cloud has empty data, keeping local and repairing');
+      appData._cloudTs = cloudTs;
+      localStorage.setItem(STORE_KEY, JSON.stringify(appData));
+      await cloudSave(appData.children, appData.password);
+      return;
+    }
     appData.children = cloud;
-    if (cloud.password !== undefined) appData.password = cloud.password;
+    if (cloud.password != null) appData.password = cloud.password;
     appData._cloudTs = cloudTs;
     localStorage.setItem(STORE_KEY, JSON.stringify(appData));
     console.log('auto synced from cloud');
@@ -2340,11 +2356,12 @@ async function cloudSave(childrenData, pwd, retryAttempt) {
   const token = getCloudToken();
   if (!token) return false;
   // GUARD: refuse to upload empty/broken data that would wipe cloud
+  // Must check pet explicitly - taskData always has 10 default entry keys even for new users
   if (childrenData) {
     var z = childrenData.zhizhi, x = childrenData.xixi;
-    var zHasData = z && (z.pet || Object.keys(z.taskData||{}).length > 0);
-    var xHasData = x && (x.pet || Object.keys(x.taskData||{}).length > 0);
-    if (!zHasData && !xHasData) { console.log('cloudSave BLOCKED: children data is empty, refusing to upload'); return false; }
+    var zHasPet = z && z.pet;
+    var xHasPet = x && x.pet;
+    if (!zHasPet && !xHasPet) { console.log('cloudSave BLOCKED: no pet data, refusing to upload'); return false; }
   }
   const now = Date.now();
   if (now - _cloudLastSave < 2500 && !retryAttempt) return true;
