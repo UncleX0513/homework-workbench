@@ -2325,13 +2325,24 @@ async function cloudSave(childrenData, pwd, retryAttempt) {
   _cloudLastSave = now;
   try {
     let sha = _cloudSha;
+    var cloudPwd = pwd;
     const getResp = await fetch(CLOUD_URL, {
       headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
     });
-    if (getResp.ok) { const j = await getResp.json(); sha = j.sha; _cloudSha = sha; }
+    if (getResp.ok) {
+      const j = await getResp.json();
+      sha = j.sha; _cloudSha = sha;
+      // Protect password: if local pwd is null but cloud has a valid password, preserve it
+      if (!cloudPwd) {
+        try {
+          var cloudContent = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(j.content), function(c){return c.charCodeAt(0);})));
+          if (cloudContent.password) { cloudPwd = cloudContent.password; console.log('cloudSave: preserved cloud password'); }
+        } catch(_) {}
+      }
+    }
     else if (getResp.status === 404) { sha = null; }
     else if (getResp.status === 401) { setCloudToken(''); showToast('Token已失效，请重新输入'); return false; }
-    const payload = { ...childrenData, password: pwd || null, _ts: new Date().toISOString() };
+    const payload = { ...childrenData, password: cloudPwd || null, _ts: new Date().toISOString() };
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
     const bodyObj = { message: 'auto sync', content: encoded };
     if (sha) bodyObj.sha = sha;
@@ -2371,8 +2382,18 @@ async function cloudSync() {
   const cloudTs = cloud._ts || '';
   const localTs = appData._cloudTs || '';
   if (cloudTs > localTs) {
+    // Safety: if cloud has no password but local does, refuse to overwrite
+    if (!cloud.password && appData.password) {
+      console.log('cloudSync: cloud has no password, keeping local');
+      appData._cloudTs = cloudTs;
+      localStorage.setItem(STORE_KEY, JSON.stringify(appData));
+      // Re-upload local data to fix corrupted cloud
+      var fixOk = await cloudSave(appData.children, appData.password);
+      if (fixOk) updateCloudStatus(String.fromCharCode(0x2601,0xFE0F)+' 已修复云端 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}));
+      return;
+    }
     appData.children = cloud;
-    if (cloud.password !== undefined) appData.password = cloud.password;
+    if (cloud.password != null) appData.password = cloud.password;
     appData._cloudTs = cloudTs;
     localStorage.setItem(STORE_KEY, JSON.stringify(appData));
     console.log('cloud data restored');
@@ -3391,7 +3412,10 @@ var _PET_VOICE = {
 function speakPetText(text, petId) {
   if (!window.speechSynthesis) return;
   speechSynthesis.cancel();
-  var u = new SpeechSynthesisUtterance(text);
+  // Strip emojis and special symbols from spoken text
+  var cleanText = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{200D}\u{FE0F}\u{20E3}]/gu, '').replace(/[\u{2500}-\u{2BEF}\u{3000}-\u{303F}\u{00A9}\u{00AE}]/gu, '').replace(/\s+/g, ' ').trim();
+  if (!cleanText) return;
+  var u = new SpeechSynthesisUtterance(cleanText);
   u.lang = 'zh-CN';
   var vp = _PET_VOICE[petId] || [1.0, 1.0];
   u.pitch = vp[0]; u.rate = vp[1]; u.volume = 0.85;
