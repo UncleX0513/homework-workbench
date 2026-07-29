@@ -2955,24 +2955,30 @@ const _BACKUP_CHILDREN = {
 
 function loadData() {
 
+  var localStorageHadData = false;
+  var savedPassword = null;
+
   const raw = localStorage.getItem(STORE_KEY);
 
   if (raw) {
 
-    try { appData = JSON.parse(raw); } catch(e) { appData = null; }
+    try { appData = JSON.parse(raw); savedPassword = appData.password; localStorageHadData = true; } catch(e) { appData = null; }
 
   }
 
-  if (!appData) {
+  // Check if localStorage data is REAL (has pets) - if not, use embedded backup
+  var localStorageHasRealData = appData && appData.children && appData.children.zhizhi && appData.children.zhizhi.pet && appData.children.xixi && appData.children.xixi.pet;
+
+  if (!appData || !localStorageHasRealData) {
 
     // Use embedded backup data if available (no network dependency)
     if (typeof _BACKUP_CHILDREN !== 'undefined' && _BACKUP_CHILDREN.zhizhi && _BACKUP_CHILDREN.zhizhi.pet) {
       appData = {
-        password: null,
+        password: savedPassword || _DEFAULT_PASSWORD,
         children: JSON.parse(JSON.stringify(_BACKUP_CHILDREN))
       };
       saveData();
-      console.log('loadData: loaded from embedded backup');
+      console.log('loadData: loaded from embedded backup (localStorage was empty or had no pets)');
     } else {
       appData = {
 
