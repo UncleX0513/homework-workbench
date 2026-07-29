@@ -2401,6 +2401,14 @@ async function cloudSave(childrenData, pwd, retryAttempt) {
   return false;
 }
 
+function _hasRealData(obj) {
+  for (var k in obj) {
+    var v = obj[k];
+    if (v && v.pet && v.taskData && Object.keys(v.taskData).length > 0) return true;
+  }
+  return false;
+}
+
 async function cloudSync() {
   const token = getCloudToken();
   if (!token) return;
@@ -2414,9 +2422,17 @@ async function cloudSync() {
       console.log('cloudSync: cloud has no password, keeping local');
       appData._cloudTs = cloudTs;
       localStorage.setItem(STORE_KEY, JSON.stringify(appData));
-      // Re-upload local data to fix corrupted cloud
       var fixOk = await cloudSave(appData.children, appData.password);
       if (fixOk) updateCloudStatus(String.fromCharCode(0x2601,0xFE0F)+' 已修复云端 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}));
+      return;
+    }
+    // Safety: if cloud children are empty (pet:null, no tasks) but local has real data, refuse to overwrite
+    if (!_hasRealData(cloud) && _hasRealData(appData.children)) {
+      console.log('cloudSync: cloud has empty data, keeping local and repairing cloud');
+      appData._cloudTs = cloudTs;
+      localStorage.setItem(STORE_KEY, JSON.stringify(appData));
+      var fixOk2 = await cloudSave(appData.children, appData.password);
+      if (fixOk2) updateCloudStatus(String.fromCharCode(0x2601,0xFE0F)+' 已修复云端 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}));
       return;
     }
     appData.children = cloud;
@@ -3831,7 +3847,7 @@ function exportData() {
 
 ============================================================ */
 
-function enterApp() {
+async function enterApp() {
 
   updateDate();
 
@@ -3844,6 +3860,12 @@ function enterApp() {
   const dow = getDayOfWeek();
 
   selectedDay = (dow === 0 ? 6 : dow - 1);
+
+  // 如果本地没有真实数据（新设备），优先从云端拉取
+  if (!_hasRealData(appData.children)) {
+    showToast('\u2601\uFE0F \u6B63\u5728\u4ECE\u4E91\u7AEF\u52A0\u8F7D\u6570\u636E...');
+    await cloudSync();
+  }
 
   renderAll();
 
