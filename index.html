@@ -2320,6 +2320,13 @@ async function cloudLoad() {
 async function cloudSave(childrenData, pwd, retryAttempt) {
   const token = getCloudToken();
   if (!token) return false;
+  // GUARD: refuse to upload empty/broken data that would wipe cloud
+  if (childrenData) {
+    var z = childrenData.zhizhi, x = childrenData.xixi;
+    var zHasData = z && (z.pet || Object.keys(z.taskData||{}).length > 0);
+    var xHasData = x && (x.pet || Object.keys(x.taskData||{}).length > 0);
+    if (!zHasData && !xHasData) { console.log('cloudSave BLOCKED: children data is empty, refusing to upload'); return false; }
+  }
   const now = Date.now();
   if (now - _cloudLastSave < 2500 && !retryAttempt) return true;
   _cloudLastSave = now;
